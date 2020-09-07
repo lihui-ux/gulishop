@@ -22,5 +22,8 @@ export default {
 
   getPageList(page,limit){
     return request.get(`/admin/product/baseTrademark/${page}/${limit}`)
+  },
+  getList(){
+    return request.get('/admin/product/baseTrademark/getTrademarkList')
   }
 }

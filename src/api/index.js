@@ -5,9 +5,10 @@ export {default as permission} from './acl/permission'
 export {default as category} from './category'
 export {default as clientUser} from './clientUser'
 export {default as order} from './order'
-export {default as trademark} from './product/index'
-
-
+export {default as trademark} from './product/trademark'
+export {default as attr} from './product/attr'
+export {default as spu} from './product/spu'
+export {default as sku} from './product/sku'
 
 /* {
   login: {},

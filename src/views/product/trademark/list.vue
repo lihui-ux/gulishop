@@ -1,28 +1,29 @@
 <template>
   <div>
-    <el-button type="primary" icon="el-icon-plus" @click="showAddDialog">添加</el-button>
-    <el-table :data="trademarkList" style="width: 100%;margin:20px 0" border>
-      <el-table-column label="序号" type="index" width="80" aline="center"></el-table-column>
+    <el-button type="primary" icon="el-icon-plus" @click="showAddDialog"
+      >添加</el-button
+    >
+    <el-table :data="trademarkList" style="width: 100%;margin:20px 0">
+      <el-table-column
+        type="index"
+        label="序号"
+        width="80"
+        aline="center"
+      ></el-table-column>
       <el-table-column prop="tmName" label="品牌名称"></el-table-column>
       <el-table-column prop="logoUrl" label="品牌LOGO">
-        <template slot-scope="{ row, $index }">
+        <template slot-scope="{ row }">
           <img :src="row.logoUrl" alt style="width:100px;height:50px" />
         </template>
       </el-table-column>
       <el-table-column label="操作">
-        <template slot-scope="{ row, $index }">
-          <el-button
-            type="warning"
-            size="mini"
-            icon="el-icon-edit"
-            @click="showUpdateDialog(row)"
-          >修改</el-button>
-          <el-button
-            size="mini"
-            type="danger"
-            icon="el-icon-delete"
-            @click="deleteTrademark(row)"
-          >删除</el-button>
+        <template slot-scope="{ row, index }">
+          <el-button size="mini" type="warning" @click="showUpdateDialog(row)"
+            >修改</el-button
+          >
+          <el-button size="mini" type="danger" @click="deleteTrademark(row)"
+            >删除</el-button
+          >
         </template>
       </el-table-column>
     </el-table>
@@ -31,18 +32,21 @@
       @size-change="handleSizeChange"
       @current-change="getTrademarkList"
       :current-page="page"
-      :page-sizes="[3, 5, 10, 15]"
+      :page-sizes="[3, 5, 7, 10]"
       :page-size="limit"
       layout="prev, pager, next, jumper,->,sizes,total"
       :total="total"
     ></el-pagination>
 
-    <el-dialog :title="`${form.id ? '修改':'添加'}品牌`" :visible.sync="dialogFormVisible">
-      <el-form :model="form" style="width:80%">
-        <el-form-item label="品牌名称" :label-width="'100px'">
+    <el-dialog
+      :title="`${form.id ? '修改' : '添加'}品牌`"
+      :visible.sync="dialogFormVisible"
+    >
+      <el-form :model="form" style="width:80%" :rules="rules" ref="form">
+        <el-form-item label="品牌名称" :label-width="'100px'" prop="tmName">
           <el-input v-model="form.tmName" autocomplete="off"></el-input>
         </el-form-item>
-        <el-form-item label="品牌LOGO" :label-width="'100px'">
+        <el-form-item label="品牌LOGO" :label-width="'100px'" prop="logoUrl">
           <el-upload
             class="avatar-uploader"
             action="/dev-api/admin/product/fileUpload"
@@ -62,7 +66,6 @@
     </el-dialog>
   </div>
 </template>
-
 <script>
 export default {
   name: "Trademark",
@@ -73,11 +76,24 @@ export default {
       trademarkList: [],
       total: 0,
       dialogFormVisible: false,
-      imageUrl: "",
       form: {
         tmName: "",
-        logoUrl: "",
+        logoUrl: ""
       },
+      rules: {
+        tmName: [
+          { required: true, message: "请输入品牌名称", trigger: "blur" },
+          {
+            min: 2,
+            max: 10,
+            message: "长度在 2 到 10 个字符",
+            trigger: "change"
+          }
+        ],
+        logoUrl: [
+          { required: true, message: "请上传品牌LOGO", trigger: "change" }
+        ]
+      }
     };
   },
   mounted() {
@@ -93,26 +109,45 @@ export default {
       if (result.code === 200) {
         this.trademarkList = result.data.records;
         this.total = result.data.total;
+      } else {
+        alert("请求失败");
       }
     },
-    // 点击添加按钮，弹出对话框
-    /*
-      点击取消之后，再次点击添加上次输入的数据仍然还在，
-      解决，再点击添加之前就先清空数据
-    */
+    handleSizeChange(val) {
+      this.limit = val;
+      this.getTrademarkList();
+    },
     showAddDialog() {
       this.dialogFormVisible = true;
       this.form = {
         tmName: "",
-        logoUrl: "",
+        logoUrl: ""
       };
     },
-    //  一页显示多少条
-    handleSizeChange(size) {
-      this.limit = size;
-      this.getTrademarkList();
+    save() {
+      this.$refs.form.validate(async valid => {
+        if (valid) {
+          let trademark = this.form;
+          try {
+            const result = await this.$API.trademark.addOrUpdate(trademark);
+            if (result.code === 200) {
+              this.dialogFormVisible = false;
+              this.getTrademarkList();
+              this.$message.success(
+                `${trademark.id ? "修改" : "添加"}品牌成功`
+              );
+            } else {
+              this.$message.error(`${trademark.id ? "修改" : "添加"}品牌成功`);
+            }
+          } catch (error) {
+            this.$message.error(error.message);
+          }
+        } else {
+          console.log("error submit!!");
+          return false;
+        }
+      });
     },
-
     //  上传图片格式修改
     beforeAvatarUpload(file) {
       let fileTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -127,64 +162,41 @@ export default {
       }
       return isJPG && isLt2M;
     },
-
     //上传成功后的处理
     handleAvatarSuccess(res, file) {
       this.form.logoUrl = res.data; //真正的收集上传成功的图片路径
     },
-    // 点击确认发送请求,点击添加和修改使用同一个函数
-    async save() {
-      // 1.获取请求所需要的数据
-      let trademark = this.form;
-      try {
-        // 2.发请求
-        const result = await this.$API.trademark.addOrUpdate(trademark);
-        if (result.code === 200) {
-          //  关闭弹框
-          this.dialogFormVisible = false;
-          // 重新发请拿列表的数据
-          this.getTrademarkList();
-          //  提示添加成功
-          this.$message.success(`${trademark.id ? '修改':'添加'}成功`);
-        } else {
-          this.$message.error(`${trademark.id ? '修改':'添加'}成功`);
-        }
-      } catch (error) {
-        this.$message.error(error.message);
-      }
-    },
-    //  点击修改,row就是修改的数据，将它给form表单
+    // 修改
     showUpdateDialog(row) {
-      //  弹出弹框
       this.dialogFormVisible = true;
-      //  this.form =  row
-      //  写row这个对象会直接影响页面，所以将row进行浅复制，和row不是同一个对象
       this.form = { ...row };
     },
-    //  点击删除
+    //  删除
     deleteTrademark(row) {
-      this.$confirm(`确认删除${row.tmName}这个品牌吗？`, "提示", {
+      this.$confirm(`确认删除${row.tmName}吗`, "提示", {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
-        type: "warning",
+        type: "warning"
       })
-        .then(async() => {
-            const result = await this.$API.trademark.delete(row.id)
-            if(result.code === 200){
-                this.$message.success("删除成功")
-                this.getTrademarkList(this.trademarkList.length > 1 ? this.page:this.page-1);
-            }else{
-              this.$message.error("删除失败");
-            }
+        .then(async () => {
+          const result = await this.$API.trademark.delete(row.id);
+          if (result.code === 200) {
+            this.$message.success("删除成功");
+            this.getTrademarkList(
+              this.trademarkList.length > 1 ? this.page : this.page - 1
+            );
+          } else {
+            this.$message.error("删除失败");
+          }
         })
         .catch(() => {
           this.$message({
             type: "info",
-            message: "已取消删除",
+            message: "已取消删除"
           });
         });
-    },
-  },
+    }
+  }
 };
 </script>
 
